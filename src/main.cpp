@@ -13,7 +13,7 @@
 // ============================================================================
 
 constexpr const wchar_t* TARGET_PROCESS  = L"FarFarWest-Win64-Shipping.exe";
-constexpr const wchar_t* WINDOW_TITLE    = L"FarFarWest Mod Injector";
+constexpr const wchar_t* WINDOW_TITLE    = L"FarFarWest Mod Injector by songzhearen";
 constexpr DWORD          POLL_INTERVAL   = 1000; // ms
 constexpr int            WIN_W           = 460;
 constexpr int            WIN_H           = 340;
@@ -137,9 +137,9 @@ static bool InjectDll(DWORD pid, const wchar_t* dllPath, std::wstring& error) {
     if (!hProcess) {
         DWORD err = GetLastError();
         if (err == ERROR_ACCESS_DENIED)
-            error = L"Access denied. Try running as Administrator.";
+            error = L"拒绝访问，请以管理员身份运行。";
         else
-            error = L"OpenProcess failed: " + FormatWin32Error(err);
+            error = L"OpenProcess 失败: " + FormatWin32Error(err);
         return false;
     }
 
@@ -154,13 +154,13 @@ static bool InjectDll(DWORD pid, const wchar_t* dllPath, std::wstring& error) {
 
     LPVOID remoteMem = VirtualAllocEx(hProcess, nullptr, pathSize, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
     if (!remoteMem) {
-        error = L"VirtualAllocEx failed: " + FormatWin32Error(GetLastError());
+        error = L"VirtualAllocEx 失败: " + FormatWin32Error(GetLastError());
         CloseHandle(hProcess);
         return false;
     }
 
     if (!WriteProcessMemory(hProcess, remoteMem, dllPath, pathSize, nullptr)) {
-        error = L"WriteProcessMemory failed: " + FormatWin32Error(GetLastError());
+        error = L"WriteProcessMemory 失败: " + FormatWin32Error(GetLastError());
         VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
         CloseHandle(hProcess);
         return false;
@@ -169,7 +169,7 @@ static bool InjectDll(DWORD pid, const wchar_t* dllPath, std::wstring& error) {
     auto loadLibAddr = reinterpret_cast<LPTHREAD_START_ROUTINE>(
         GetProcAddress(GetModuleHandleW(L"kernel32.dll"), "LoadLibraryW"));
     if (!loadLibAddr) {
-        error = L"Failed to get LoadLibraryW address.";
+        error = L"获取 LoadLibraryW 地址失败。";
         VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
         CloseHandle(hProcess);
         return false;
@@ -177,7 +177,7 @@ static bool InjectDll(DWORD pid, const wchar_t* dllPath, std::wstring& error) {
 
     HANDLE hThread = CreateRemoteThread(hProcess, nullptr, 0, loadLibAddr, remoteMem, 0, nullptr);
     if (!hThread) {
-        error = L"CreateRemoteThread failed: " + FormatWin32Error(GetLastError());
+        error = L"CreateRemoteThread 失败: " + FormatWin32Error(GetLastError());
         VirtualFreeEx(hProcess, remoteMem, 0, MEM_RELEASE);
         CloseHandle(hProcess);
         return false;
@@ -193,7 +193,7 @@ static bool InjectDll(DWORD pid, const wchar_t* dllPath, std::wstring& error) {
     CloseHandle(hProcess);
 
     if (exitCode == 0) {
-        error = L"DLL failed to load inside the game. Check that it is 64-bit and its dependencies are available.";
+        error = L"DLL 在游戏内加载失败，请确认 DLL 为 64 位且依赖完整。";
         return false;
     }
 
@@ -211,30 +211,30 @@ static void UpdateUI() {
 
     switch (g_state) {
     case AppState::NoDll:
-        SetStatus(L"DLL: Not selected or not found");
+        SetStatus(L"DLL: 未选择或未找到");
         EnableWindow(g_hInjectBtn, FALSE);
         break;
     case AppState::WaitingForProcess:
-        SetStatus(L"Waiting for FarFarWest-Win64-Shipping.exe...");
+        SetStatus(L"等待游戏进程 FarFarWest-Win64-Shipping.exe ...");
         EnableWindow(g_hInjectBtn, FALSE);
         break;
     case AppState::Ready: {
         wchar_t buf[128];
-        swprintf_s(buf, L"Game found (PID: %u). Ready to inject.", g_foundPid);
+        swprintf_s(buf, L"已找到游戏进程 (PID: %u)，可以注入。", g_foundPid);
         SetStatus(buf);
         EnableWindow(g_hInjectBtn, dllExists);
         break;
     }
     case AppState::Injecting:
-        SetStatus(L"Injecting...");
+        SetStatus(L"正在注入...");
         EnableWindow(g_hInjectBtn, FALSE);
         break;
     case AppState::Success:
-        SetStatus(L"Injection successful!");
+        SetStatus(L"注入成功！");
         EnableWindow(g_hInjectBtn, FALSE);
         break;
     case AppState::AlreadyLoaded:
-        SetStatus(L"Mod already loaded in game process.");
+        SetStatus(L"Mod 已在游戏中加载。");
         EnableWindow(g_hInjectBtn, FALSE);
         break;
     case AppState::Error:
@@ -246,14 +246,14 @@ static void UpdateUI() {
 static void DoInject() {
     GetWindowTextW(g_hDllEdit, g_dllPath, MAX_PATH);
     if (GetFileAttributesW(g_dllPath) == INVALID_FILE_ATTRIBUTES) {
-        AppendLog(L"[Error] DLL file not found.");
+        AppendLog(L"[错误] DLL 文件未找到。");
         g_state = AppState::NoDll;
         UpdateUI();
         return;
     }
 
     if (g_foundPid == 0) {
-        AppendLog(L"[Error] Game process not found.");
+        AppendLog(L"[错误] 游戏进程未找到。");
         g_state = AppState::WaitingForProcess;
         UpdateUI();
         return;
@@ -261,7 +261,7 @@ static void DoInject() {
 
     g_state = AppState::Injecting;
     UpdateUI();
-    AppendLog(L"Injecting...");
+    AppendLog(L"正在注入...");
 
     std::wstring error;
     bool ok = false;
@@ -270,14 +270,14 @@ static void DoInject() {
 
     if (ok) {
         g_state = AppState::Success;
-        AppendLog(L"[OK] DLL injected successfully!");
+        AppendLog(L"[成功] DLL 注入成功！");
     } else if (error == L"__already_loaded__") {
         g_state = AppState::AlreadyLoaded;
-        AppendLog(L"[Info] Mod is already loaded in the game process.");
+        AppendLog(L"[信息] Mod 已在游戏中加载。");
     } else {
         g_state = AppState::Error;
         SetStatus(error.c_str());
-        std::wstring logMsg = L"[Error] " + error;
+        std::wstring logMsg = L"[错误] " + error;
         AppendLog(logMsg.c_str());
     }
     UpdateUI();
@@ -311,7 +311,7 @@ static void OnTimer() {
         if (g_state == AppState::Success || g_state == AppState::AlreadyLoaded) {
             g_state = AppState::WaitingForProcess;
             g_foundPid = 0;
-            AppendLog(L"[Info] Game process exited. Waiting for new instance...");
+            AppendLog(L"[信息] 游戏进程已退出，等待新实例...");
             UpdateUI();
         }
         return;
@@ -322,7 +322,7 @@ static void OnTimer() {
         g_foundPid = pid;
         g_state = AppState::Ready;
         wchar_t buf[128];
-        swprintf_s(buf, L"Game found (PID: %u).", pid);
+        swprintf_s(buf, L"已找到游戏进程 (PID: %u)。", pid);
         AppendLog(buf);
         UpdateUI();
 
@@ -334,7 +334,7 @@ static void OnTimer() {
         // Game restarted with new PID
         g_foundPid = pid;
         wchar_t buf[128];
-        swprintf_s(buf, L"New game instance found (PID: %u).", pid);
+        swprintf_s(buf, L"检测到新游戏实例 (PID: %u)。", pid);
         AppendLog(buf);
         UpdateUI();
     }
@@ -350,15 +350,15 @@ static void BrowseDll() {
     OPENFILENAMEW ofn{};
     ofn.lStructSize  = sizeof(ofn);
     ofn.hwndOwner    = g_hWnd;
-    ofn.lpstrFilter  = L"DLL Files (*.dll)\0*.dll\0All Files (*.*)\0*.*\0";
+    ofn.lpstrFilter  = L"DLL 文件 (*.dll)\0*.dll\0所有文件 (*.*)\0*.*\0";
     ofn.lpstrFile    = filePath;
     ofn.nMaxFile     = MAX_PATH;
-    ofn.lpstrTitle   = L"Select Mod DLL";
+    ofn.lpstrTitle   = L"选择 Mod DLL";
     ofn.Flags        = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
 
     if (GetOpenFileNameW(&ofn)) {
         SetWindowTextW(g_hDllEdit, filePath);
-        AppendLog((L"[Info] DLL selected: " + std::wstring(filePath)).c_str());
+        AppendLog((L"[信息] 已选择 DLL: " + std::wstring(filePath)).c_str());
         // Reset state so timer re-evaluates
         g_state = AppState::NoDll;
         UpdateUI();
@@ -452,7 +452,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
         42, 12, 320, 24, g_hWnd, reinterpret_cast<HMENU>(IDC_DLL_EDIT), hInstance, nullptr);
 
     // Browse button
-    CreateWindowExW(0, L"BUTTON", L"Browse...",
+    CreateWindowExW(0, L"BUTTON", L"浏览...",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
         368, 12, 72, 24, g_hWnd, reinterpret_cast<HMENU>(IDC_BROWSE), hInstance, nullptr);
 
@@ -462,7 +462,7 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
         12, 46, 428, 20, g_hWnd, reinterpret_cast<HMENU>(IDC_STATUS), hInstance, nullptr);
 
     // Auto-inject checkbox
-    g_hAutoInject = CreateWindowExW(0, L"BUTTON", L"Auto-Inject",
+    g_hAutoInject = CreateWindowExW(0, L"BUTTON", L"自动注入",
         WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX,
         12, 72, 120, 20, g_hWnd, reinterpret_cast<HMENU>(IDC_AUTOINJECT), hInstance, nullptr);
 
@@ -472,14 +472,14 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
         12, 100, 428, 170, g_hWnd, reinterpret_cast<HMENU>(IDC_LOG), hInstance, nullptr);
 
     // Inject button
-    g_hInjectBtn = CreateWindowExW(0, L"BUTTON", L"Inject",
+    g_hInjectBtn = CreateWindowExW(0, L"BUTTON", L"注入",
         WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_DEFPUSHBUTTON,
         180, 278, 100, 28, g_hWnd, reinterpret_cast<HMENU>(IDC_INJECT), hInstance, nullptr);
 
-    // Set a reasonable font
-    HFONT hFont = CreateFontW(-13, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
+    // Set font (Microsoft YaHei for Chinese support)
+    HFONT hFont = CreateFontW(-14, 0, 0, 0, FW_NORMAL, FALSE, FALSE, FALSE,
         DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-        CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Segoe UI");
+        CLEARTYPE_QUALITY, DEFAULT_PITCH, L"Microsoft YaHei");
     if (hFont) {
         auto setFont = [&](HWND h) { SendMessageW(h, WM_SETFONT, reinterpret_cast<WPARAM>(hFont), TRUE); };
         setFont(g_hDllEdit);
@@ -497,8 +497,8 @@ int WINAPI wWinMain(HINSTANCE hInstance, HINSTANCE, LPWSTR, int nCmdShow) {
     // Initial state
     g_state = AppState::NoDll;
     UpdateUI();
-    AppendLog(L"FarFarWest Mod Injector ready.");
-    AppendLog(L"Select a DLL file and click Inject.");
+    AppendLog(L"FarFarWest Mod Injector by songzhearen");
+    AppendLog(L"请选择 DLL 文件，然后点击注入。");
 
     // Start polling timer
     SetTimer(g_hWnd, IDT_POLL, POLL_INTERVAL, nullptr);
